@@ -1,0 +1,533 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+
+namespace ADTConvert
+{
+    class Main
+    {
+        struct DataChunk
+        {
+            public string Signature;
+            public int Size;
+            public byte[] Data;
+        }
+
+        BinaryReader inputReader = null;
+        private string adtName = "";
+        private string exportPath = "";
+        List<DataChunk> chunks = new List<DataChunk>();
+
+        public Main(string input, bool verbose = false, int version = 6)
+        {
+            Console.WriteLine("\n--- Base ADT Load ---");
+            adtName = Path.GetFileName(input);
+            exportPath = (Path.GetDirectoryName(input) == "" ? AppDomain.CurrentDomain.BaseDirectory : Path.GetFullPath(Path.GetDirectoryName(input))) + @"\export\";
+            if (!Directory.Exists(exportPath))
+            {
+                if (verbose)
+                    Console.WriteLine("Debug: Create export dir in {0}", exportPath);
+
+                Directory.CreateDirectory(exportPath);
+            }
+
+            #region Open and check original ADT
+            try
+            {
+                Console.WriteLine("Info: Open {0}", adtName);
+                FileStream baseStream = new FileStream(input, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                inputReader = new BinaryReader(baseStream);
+            }
+            catch (Exception e)
+            {
+                Program.ConsoleErrorEnd(e.Message);
+            }
+
+            if (!Helper.SeekChunk(inputReader, "MVER") || !Helper.SeekChunk(inputReader, "MHDR") || !Helper.SeekChunk(inputReader, "MCIN"))
+            {
+                Program.ConsoleErrorEnd("ADT file is corrupted");
+                return;
+            }
+            #endregion
+
+            #region Load all chunks
+            Console.WriteLine("Info: Load all chunks");
+            inputReader.BaseStream.Seek(0, SeekOrigin.Begin);
+            while (inputReader.BaseStream.Position + 8 < inputReader.BaseStream.Length)
+            {
+                string magic = Helper.Reverse(new string(inputReader.ReadChars(4)));
+                int size = inputReader.ReadInt32() + 8;
+                inputReader.BaseStream.Position -= 8;
+                byte[] data = inputReader.ReadBytes(size);
+
+                if(verbose)
+                    Console.WriteLine("Debug: Load {0}", magic);
+
+                chunks.Add(new DataChunk
+                {
+                    Data = data,
+                    Signature = magic,
+                    Size = size
+                });
+            }
+            #endregion
+
+            if (createRoot(input, verbose))
+                if (createTex(input, verbose))
+                    createObj(input, verbose);
+        }
+
+        private bool createRoot(string input, bool verbose = false, int version = 6)
+        {
+            Console.WriteLine("\n--- Root ADT Convert ---");
+
+            BinaryReader rootReader = null;
+            BinaryWriter rootWriter = null;
+            List<string> rootChunks = new List<string> { "MVER", "MHDR", /*"MH2O",*/ "MFBO", /*"MCNK"*/ };
+            List<string> mcnkSubChunks = new List<string> { "MCTV", "MCVT", "MCLV", "MCCV", "MCNR", "MCSE" };
+
+            if (!createBase(ref rootReader, ref rootWriter, rootChunks, ".adt", verbose))
+                return false;
+
+
+            #region Copy & clean MH2O
+            if(Helper.SeekChunk(inputReader, "MH2O"))
+            {
+                try
+                {
+                    int size = rootReader.ReadInt32();
+                    inputReader.BaseStream.Position -= sizeof(UInt32) * 2;  // magic && header size
+                    size += sizeof(UInt32) * 2;                             // magic && header size
+                    rootWriter.Write(inputReader.ReadBytes(size));
+                }
+                catch (System.IO.EndOfStreamException /*ex*/)
+                {
+                    // Water created with Allwater tool and is buggy ;)
+                    Console.WriteLine("Info: Fix MH2O chunk");
+
+                    long mh2oStart = inputReader.BaseStream.Position += sizeof(UInt32);
+
+                    List<string> searchChunks = new List<string> { "MVER", "MHDR", "MFBO", "MCNK" };
+                    Helper.SeekChunkFormList(inputReader, searchChunks, false);
+                    long mh2oEnd = inputReader.BaseStream.Position;
+                    Int32 mh2oSize = (Int32)mh2oEnd - (Int32)mh2oStart;
+
+                    inputReader.BaseStream.Position = mh2oStart;
+                    rootWriter.Write(Helper.MagicToSignature("MH2O"));   // Magic
+                    rootWriter.Write(mh2oSize);                          // Size
+                    rootWriter.Write(inputReader.ReadBytes(mh2oSize));    // Data
+                }
+            }
+            #endregion
+
+            #region Copy & clean MCNK
+            Console.WriteLine("Info: Fix MCNK chunk for root");
+            inputReader.BaseStream.Seek(0, SeekOrigin.Begin);
+            rootWriter.BaseStream.Seek(0, SeekOrigin.End);
+            while (Helper.SeekChunk(inputReader, "MCNK", false))
+            {
+                long chunkStart = inputReader.BaseStream.Position - sizeof(UInt32);
+                uint size = inputReader.ReadUInt32();
+                uint newSize = 0;
+                long chunkEnd = chunkStart + sizeof(UInt32) * 2 + size;
+
+                if (size > 0)
+                {
+                    inputReader.BaseStream.Position = chunkStart;
+                    rootWriter.Write(inputReader.ReadBytes(8));                 // magic && old size
+
+
+                        rootWriter.Write(inputReader.ReadUInt32());                 // flags
+                        rootWriter.Write(inputReader.ReadUInt32());                 // IndexX
+                        rootWriter.Write(inputReader.ReadUInt32());                 // IndexY
+
+                        // nLayers
+                        inputReader.BaseStream.Position += 4;
+                        rootWriter.Write((UInt32)0);
+
+                        // nDoodadRefs
+                        inputReader.BaseStream.Position += 4;
+                        rootWriter.Write((UInt32)0);
+
+                        // ofsHeight
+                        inputReader.BaseStream.Position += 4;
+                        rootWriter.Write((UInt32)0);
+
+                        // ofsNormal
+                        inputReader.BaseStream.Position += 4;
+                        rootWriter.Write((UInt32)0);
+
+                        // ofsLayer
+                        inputReader.BaseStream.Position += 4;
+                        rootWriter.Write((UInt32)0);
+
+                        // ofsRefs
+                        inputReader.BaseStream.Position += 4;
+                        rootWriter.Write((UInt32)0);
+
+                        // ofsAlpha
+                        inputReader.BaseStream.Position += 4;
+                        rootWriter.Write((UInt32)0);
+
+                        // sizeAlpha
+                        inputReader.BaseStream.Position += 4;
+                        rootWriter.Write((UInt32)0);
+
+                        // ofsShadow
+                        inputReader.BaseStream.Position += 4;
+                        rootWriter.Write((UInt32)0);
+
+                        // sizeShadow
+                        inputReader.BaseStream.Position += 4;
+                        rootWriter.Write((UInt32)0);
+
+                        rootWriter.Write(inputReader.ReadUInt32());                 // areaid
+
+                        // nMapObjRefs
+                        inputReader.BaseStream.Position += 4;
+                        rootWriter.Write((UInt32)0);
+
+                        rootWriter.Write(inputReader.ReadUInt16());                 // holes_low_res
+                        rootWriter.Write(inputReader.ReadUInt16());                 // unknown_but_used;
+                        rootWriter.Write(inputReader.ReadBytes(16));                // ReallyLowQualityTextureingMap
+                        rootWriter.Write(inputReader.ReadUInt32());                 // predTex
+                        rootWriter.Write(inputReader.ReadUInt32());                 // noEffectDoodad
+                        rootWriter.Write(inputReader.ReadUInt32());                 // ofsSndEmitters
+                        rootWriter.Write(inputReader.ReadUInt32());                 // nSndEmitters
+                        rootWriter.Write(inputReader.ReadUInt32());                 // ofsLiquid
+                        rootWriter.Write(inputReader.ReadUInt32());                 // sizeLiquid
+                        rootWriter.Write(inputReader.ReadBytes(sizeof(float) * 3)); // position
+                        rootWriter.Write(inputReader.ReadUInt32());                 // ofsMCCV
+                        rootWriter.Write(inputReader.ReadUInt32());                 // ofsMCLV
+
+                        // unused
+                        inputReader.BaseStream.Position += 4;
+                        rootWriter.Write((UInt32)0);
+
+                    newSize += 128;                                                 // header size
+
+                    #region Read & write sub chunks
+                    long afterHeaderPosition = inputReader.BaseStream.Position;
+                    foreach (string subChunkName in mcnkSubChunks)
+                    {
+                        inputReader.BaseStream.Position = afterHeaderPosition;
+
+                        #region Write MCNR sub chunk
+                        if(subChunkName == "MCNR")
+                        {
+                            if (verbose)
+                                Console.WriteLine("Debug: Write MCNR chunk");
+
+                            while (Helper.SeekSubChunk(inputReader, "MCNR", false, chunkEnd))
+                            {
+                                inputReader.BaseStream.Position += 4;                // old size
+
+                                int mcnrSize = 448;
+                                rootWriter.Write(Helper.MagicToSignature("MCNR"));   // Magic
+                                rootWriter.Write(mcnrSize);                          // Size
+                                rootWriter.Write(inputReader.ReadBytes(mcnrSize));   // Data
+                                newSize += sizeof(UInt32) * 2 + (uint)mcnrSize;
+                            }
+                            continue;
+                        }
+                        #endregion
+
+                        if (Helper.SeekSubChunk(inputReader, subChunkName, false, chunkEnd))
+                        {
+                            int subChunkSize = inputReader.ReadInt32() + 8;
+                            inputReader.BaseStream.Position -= 8;
+                            byte[] subChunkData = inputReader.ReadBytes(subChunkSize);
+
+
+                            rootWriter.Write(subChunkData);
+                            newSize += (uint)subChunkSize;
+                        }
+                    }
+
+                    #region Write new MCNK size
+                    rootWriter.BaseStream.Position -= newSize + sizeof(UInt32);
+                    rootWriter.Write(newSize); // new size
+                    rootWriter.BaseStream.Seek(0, SeekOrigin.End);
+                    #endregion
+                    inputReader.BaseStream.Position = chunkEnd;
+                    #endregion
+                }
+            }
+            #endregion
+
+            #region if MFBO not exist create a MFBO chunk
+            if (!Helper.SeekChunk(inputReader, "MFBO"))
+            {
+                Console.WriteLine("Info: Create MFBO chunk");
+                rootWriter.BaseStream.Seek(0, SeekOrigin.End);
+                rootWriter.Write((UInt64)155915272783);
+                rootWriter.Write((UInt64)168887563046093400);
+                rootWriter.Write((UInt64)168887563046093400);
+                rootWriter.Write((UInt64)18404803662219706968);
+                rootWriter.Write((UInt64)18404803662219771754);
+                rootWriter.Write((UInt32)4285202282);
+            }
+            #endregion
+
+            #region Set new ADT size in MHDR
+            rootWriter.BaseStream.Seek(56, SeekOrigin.Begin);
+            rootWriter.Write((UInt32)rootReader.BaseStream.Length - sizeof(UInt64));
+            #endregion
+
+            rootWriter.Close();
+            rootReader.Close();
+            return true;
+        }
+
+        private bool createTex(string input, bool verbose = false, int version = 6)
+        {
+            Console.WriteLine("\n--- Tex ADT Convert ---");
+            string ext0 = "_tex0.adt";
+            string ext1 = "_tex1.adt";
+            BinaryReader texReader = null;
+            BinaryWriter texWriter = null;
+            List<string> texChunks = new List<string> { "MVER", "MAMP", "MTEX", /*"MCNK"*/ };
+            List<string> mcnkSubChunks = new List<string> { "MCLY", "MCSH", "MCAL", "MCMT"};
+
+
+            if (!createBase(ref texReader, ref texWriter, texChunks, ext0, verbose))
+                return false;
+
+            #region if MAMP not exist create a MAMP chunk
+            if (!Helper.SeekChunk(inputReader, "MAMP", true))
+            {
+                Console.WriteLine("Info: Create MAMP chunk");
+                texWriter.Write(Helper.MagicToSignature("MAMP"));   // Magic
+                texWriter.Write((UInt32)4);                         // Size
+                texWriter.Write((UInt32)0);                         // Content
+            }
+            #endregion
+
+            #region Copy & clean MCNK
+            Console.WriteLine("Info: Fix MCNK chunk for tex");
+            inputReader.BaseStream.Position = 0;
+            while (Helper.SeekChunk(inputReader, "MCNK", false))
+            {
+                long chunkStart = inputReader.BaseStream.Position - sizeof(UInt32);
+                uint size = inputReader.ReadUInt32();
+                uint newSize = 0;
+                long chunkEnd = chunkStart + sizeof(UInt32) * 2 + size;
+
+                if (size > 0)
+                {                    
+                    inputReader.BaseStream.Position = chunkStart;
+                    texWriter.Write(inputReader.ReadBytes(8)); // magic && old size
+                    inputReader.BaseStream.Position += 128;    // skip header (128 bytes)
+
+                    #region Read & writ sub chunks
+                    long currentPosition = inputReader.BaseStream.Position;
+                    foreach (string subChunkName in mcnkSubChunks)
+                    {
+                        inputReader.BaseStream.Position = currentPosition;
+                        if (Helper.SeekSubChunk(inputReader, subChunkName, false, chunkEnd))
+                        {
+                            int subChunkSize = inputReader.ReadInt32() + 8;
+                            inputReader.BaseStream.Position -= 8;
+                            byte[] subChunkData = inputReader.ReadBytes(subChunkSize);
+
+
+                            newSize += (uint)subChunkSize;
+                            texWriter.Write(subChunkData);
+                        }
+                    }
+
+                    #region if MCMT not exist create a MCMT sub chunk
+                    inputReader.BaseStream.Position = currentPosition;
+                    if (!Helper.SeekSubChunk(inputReader, "MCMT", false, chunkEnd))
+                    {
+                        if (verbose)
+                            Console.WriteLine("Info: Create MCMT subchunk");
+                        newSize += 12;
+                        texWriter.Write(Helper.MagicToSignature("MCMT"));   // Magic
+                        texWriter.Write((UInt32)4);                         // Size
+                        texWriter.Write((UInt32)0);                         // Content
+                    }
+                    #endregion
+                    #endregion
+
+                    #region Write new MCNK size
+                    texWriter.BaseStream.Position -= newSize + sizeof(UInt32);
+                    texWriter.Write(newSize); // new size
+                    texWriter.BaseStream.Seek(0, SeekOrigin.End);
+                    #endregion
+
+                    inputReader.BaseStream.Position = chunkEnd;
+                }
+            }
+            #endregion
+
+            texWriter.Close();
+            texReader.Close();
+        
+            #region Copy tex0 to tex1
+            Console.WriteLine("Info: Copy tex0 to tex1");
+            string basePath = exportPath + Path.GetFileNameWithoutExtension(adtName);
+
+            File.Delete(basePath + ext1);
+            File.Copy(basePath + ext0, basePath + ext1);
+            #endregion
+
+            return true;
+        }
+
+        private bool createObj(string input, bool verbose = false, int version = 6)
+        {
+            Console.WriteLine("\n--- Obj ADT Convert ---");
+            string ext0 = "_obj0.adt";
+            string ext1 = "_obj1.adt";
+            BinaryReader objReader = null;
+            BinaryWriter objWriter = null;
+            List<string> objChunks = new List<string> { "MVER", "MMDX", "MMID", "MWMO", "MWID", "MDDF", "MODF", /*"MCNK"*/ };
+            List<string> mcnkSubChunks = new List<string> { "MCRD", "MCRW" };
+
+            if (!createBase(ref objReader, ref objWriter, objChunks, ext0, verbose))
+                return false;
+
+            #region Copy & clean MCNK
+            Console.WriteLine("Info: Fix MCNK chunk for obj");
+            inputReader.BaseStream.Seek(0, SeekOrigin.Begin);
+            while (Helper.SeekChunk(inputReader, "MCNK", false))
+            {
+                long chunkStart = inputReader.BaseStream.Position - sizeof(UInt32);
+                uint size = inputReader.ReadUInt32();
+                long chunkEnd = chunkStart + sizeof(UInt32) * 2 + size;
+
+                uint newSize = 0;
+                Int32 nDoodadRefs = 0;
+                Int32 nMapObjRefs = 0;
+
+                if (size > 0)
+                {
+                    inputReader.BaseStream.Position += 16;
+                    nDoodadRefs = inputReader.ReadInt32();
+                    inputReader.BaseStream.Position += 36;
+                    nMapObjRefs = inputReader.ReadInt32();
+
+                    inputReader.BaseStream.Position = chunkStart;
+                    objWriter.Write(inputReader.ReadBytes(8)); // magic && old size
+                    inputReader.BaseStream.Position += 128;    // skip header (128 bytes)
+
+                    #region Read & writ sub chunks
+                    long currentPosition = inputReader.BaseStream.Position;
+                    foreach (string subChunkName in mcnkSubChunks)
+                    {
+                        inputReader.BaseStream.Position = currentPosition;
+                        if (Helper.SeekSubChunk(inputReader, subChunkName, false, chunkEnd))
+                        {
+                            int subChunkSize = inputReader.ReadInt32() + 8;
+                            inputReader.BaseStream.Position -= 8;
+                            byte[] subChunkData = inputReader.ReadBytes(subChunkSize);
+
+
+                            newSize += (uint)subChunkSize;
+                            objWriter.Write(subChunkData);
+                        }
+                    }
+
+                    #region Split MCRF in MCRD & MCRW
+                    inputReader.BaseStream.Position = currentPosition;
+                    if (Helper.SeekSubChunk(inputReader, "MCRF", false, chunkEnd))
+                    {
+                        if (verbose)
+                            Console.WriteLine("Info: Read MCRF subchunk");
+
+                        inputReader.BaseStream.Position += sizeof(UInt32); // size
+
+                        int mcrdSize = sizeof(UInt32) * nDoodadRefs;
+                        int mcrwSize = sizeof(UInt32) * nMapObjRefs;
+
+                        byte[] mcrdData = inputReader.ReadBytes(mcrdSize);
+                        byte[] mcrwData = inputReader.ReadBytes(mcrwSize);
+
+                        if (verbose)
+                            Console.WriteLine("Info: Create MCRD subchunk");
+                        newSize += 8 + (uint)mcrdSize;
+                        objWriter.Write(Helper.MagicToSignature("MCRD"));   // Magic
+                        objWriter.Write((UInt32)mcrdSize);                  // Size
+                        objWriter.Write(mcrdData);                          // Data
+
+                        if (verbose)
+                            Console.WriteLine("Info: Create MCRW subchunk");
+                        newSize += 8 + (uint)mcrwSize;
+                        objWriter.Write(Helper.MagicToSignature("MCRW"));   // Magic
+                        objWriter.Write((UInt32)mcrwSize);                  // Size
+                        objWriter.Write(mcrwData);                          // Data
+                    }
+                    #endregion
+                    #endregion
+
+                    #region Write new MCNK size
+                    objWriter.BaseStream.Position -= newSize + sizeof(UInt32);
+                    objWriter.Write(newSize); // new size
+                    objWriter.BaseStream.Seek(0, SeekOrigin.End);
+                    #endregion
+
+                    inputReader.BaseStream.Position = chunkEnd;
+                }
+            }
+            #endregion
+
+            objWriter.Close();
+            objReader.Close();
+
+            #region Copy obj0 to obj1
+            Console.WriteLine("Info: Copy obj0 to obj1");
+            string basePath = exportPath + Path.GetFileNameWithoutExtension(adtName);
+
+            File.Delete(basePath + ext1);
+            File.Copy(basePath + ext0, basePath + ext1);
+            #endregion
+
+            return true;
+        }
+
+        private bool createBase(ref BinaryReader reader, ref BinaryWriter writer, List<string> allowdChunks, string ext, bool verbose = false)
+        {
+            string baseName = Path.GetFileNameWithoutExtension(adtName) + ext;
+            string baseADT = exportPath + baseName;
+
+            #region Remove adt
+            if (File.Exists(baseADT))
+            {
+                if (verbose)
+                    Console.WriteLine("Debug: Remove {0}", baseName);
+
+                File.Delete(baseADT);
+            }
+            #endregion
+
+            #region Create adt
+            Console.WriteLine("Info: Create {0}", baseName);
+            try
+            {
+                FileStream baseStream = File.Create(baseADT);
+                reader = new BinaryReader(baseStream);
+                writer = new BinaryWriter(baseStream);
+            }
+            catch (Exception e)
+            {
+                Program.ConsoleErrorEnd(e.Message);
+                return false;
+            }
+            #endregion
+
+            foreach (DataChunk dc in chunks)
+            {
+                if (!allowdChunks.Contains(dc.Signature))
+                    continue;
+
+                writer.Write(dc.Data);
+            }
+
+            return true;
+        }
+
+    }
+}
+#region aaa
+#endregion

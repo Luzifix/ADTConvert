@@ -1,0 +1,15 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="ADTConvert.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="ReleaseURL" Type="System.String" Scope="User">
+      <Value Profile="(Default)">https://github.com/Luzifix/ADTConvert/releases</Value>
+    </Setting>
+    <Setting Name="ReleaseAPI" Type="System.String" Scope="User">
+      <Value Profile="(Default)">http://api.github.com/repos/Luzifix/ADTConvert/releases</Value>
+    </Setting>
+    <Setting Name="UserAgent" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Mozilla/4.0 (Compatible; Windows NT 5.1; MSIE 6.0) (compatible; MSIE 6.0; Windows NT 5.1; ADTConvert </Value>
+    </Setting>
+  </Settings>
+</SettingsFile>
