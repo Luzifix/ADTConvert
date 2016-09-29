@@ -10,7 +10,8 @@ namespace ADTConvert
     {
         static void Main(string[] args)
         {
-            if (args.Contains("-s") || args.Contains("--silent"))
+            bool silentMode = (args.Contains("-s") || args.Contains("--silent"));
+            if (silentMode)
                 Console.SetOut(TextWriter.Null);
 
             Console.WriteLine("--------------------------------");
@@ -37,7 +38,12 @@ namespace ADTConvert
                 VersionCheck.CheckForUpdate(verbose);
 
             new Main(args[0], verbose);
-            Console.ReadKey();
+
+            if(!silentMode)
+            {
+                Console.WriteLine("\nPress any key to close the converter");
+                Console.ReadKey();
+            }
         }
 
         public static void ConsoleErrorEnd(string error = "")
