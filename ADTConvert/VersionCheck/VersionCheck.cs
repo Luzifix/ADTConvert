@@ -49,10 +49,10 @@ namespace ADTConvert
                         }
 
                         Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine(text);
+                        Console.Error.WriteLine(text);
                         Console.ResetColor();
 
-                        if (Console.ReadKey().Key == ConsoleKey.K)
+                        if (Console.ReadKey().Key == ConsoleKey.Y)
                         {
                             System.Diagnostics.Process.Start(realaseURL);
                         }

@@ -11,6 +11,8 @@ namespace ADTConvert
         static void Main(string[] args)
         {
             bool silentMode = (args.Contains("-s") || args.Contains("--silent"));
+            bool verbose = (args.Contains("-v") || args.Contains("--verbose"));
+
             if (silentMode)
                 Console.SetOut(TextWriter.Null);
 
@@ -20,22 +22,20 @@ namespace ADTConvert
             Console.WriteLine("E-Mail: luzifix@schattenhain.de");
             Console.WriteLine("--------------------------------");
 
+            if (!args.Contains("-noUpdate") && !args.Contains("--disableUpdateCheck"))
+                VersionCheck.CheckForUpdate(verbose);
+
             if (args.Length <= 0)
             {
                 ConsoleErrorEnd();
             }
 
             string filename = Path.GetFullPath(args[0]);
-            bool verbose = (args.Contains("-v") || args.Contains("--verbose"));
 
             if (!File.Exists(filename))
             {
                 ConsoleErrorEnd($"File {filename} not found!");
             }
-
-            
-            if (!args.Contains("-noUpdate") && !args.Contains("--disableUpdateCheck"))
-                VersionCheck.CheckForUpdate(verbose);
 
             new Main(args[0], verbose);
 
