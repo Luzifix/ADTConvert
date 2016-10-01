@@ -80,18 +80,21 @@ namespace ADTConvert
         private bool createRoot(string input, bool verbose = false, int version = 6)
         {
             Console.WriteLine("\n--- Root ADT Convert ---");
-
             BinaryReader rootReader = null;
             BinaryWriter rootWriter = null;
-            List<string> rootChunks = new List<string> { "MVER", "MHDR", /*"MH2O",*/ "MFBO", /*"MCNK"*/ };
+            List<string> rootChunks = new List<string> { "MVER", /*"MHDR", "MH2O", "MCNK", "MFBO"*/ };
             List<string> mcnkSubChunks = new List<string> { "MCTV", "MCVT", "MCLV", "MCCV", "MCNR", "MCSE" };
 
             if (!createBase(ref rootReader, ref rootWriter, rootChunks, ".adt", verbose))
                 return false;
 
+            #region Write empty MHDR chunk
+            Console.WriteLine("Info: Create MHDR chunk");
+            writeChunk(rootWriter, "MHDR", 64, new byte[64]);
+            #endregion
 
-            #region Copy & clean MH2O
-            if(Helper.SeekChunk(inputReader, "MH2O"))
+            #region Copy & clean MH2O chunk
+            if (Helper.SeekChunk(inputReader, "MH2O"))
             {
                 try
                 {
@@ -113,9 +116,8 @@ namespace ADTConvert
                     Int32 mh2oSize = (Int32)mh2oEnd - (Int32)mh2oStart;
 
                     inputReader.BaseStream.Position = mh2oStart;
-                    rootWriter.Write(Helper.MagicToSignature("MH2O"));   // Magic
-                    rootWriter.Write(mh2oSize);                          // Size
-                    rootWriter.Write(inputReader.ReadBytes(mh2oSize));    // Data
+
+                    writeChunk(rootWriter, "MH2O", mh2oSize, inputReader.ReadBytes(mh2oSize));
                 }
             }
             #endregion
@@ -223,9 +225,7 @@ namespace ADTConvert
                                 inputReader.BaseStream.Position += 4;                // old size
 
                                 int mcnrSize = 448;
-                                rootWriter.Write(Helper.MagicToSignature("MCNR"));   // Magic
-                                rootWriter.Write(mcnrSize);                          // Size
-                                rootWriter.Write(inputReader.ReadBytes(mcnrSize));   // Data
+                                writeChunk(rootWriter, "MCNR", mcnrSize, inputReader.ReadBytes(mcnrSize));
                                 newSize += sizeof(UInt32) * 2 + (uint)mcnrSize;
                             }
                             continue;
@@ -255,23 +255,48 @@ namespace ADTConvert
             }
             #endregion
 
-            #region if MFBO not exist create a MFBO chunk
-            if (!Helper.SeekChunk(inputReader, "MFBO"))
+            #region Write MFBO chunk if exist
+            if (Helper.SeekChunk(inputReader, "MFBO"))
             {
+                Console.WriteLine("Info: Copy MFBO chunk");
+                rootWriter.BaseStream.Seek(0, SeekOrigin.End);
+                int size = inputReader.ReadInt32();
+                writeChunk(rootWriter, "MFBO", size, inputReader.ReadBytes(size));
+            }
+            else
+            {
+                
                 Console.WriteLine("Info: Create MFBO chunk");
                 rootWriter.BaseStream.Seek(0, SeekOrigin.End);
-                rootWriter.Write((UInt64)155915272783);
-                rootWriter.Write((UInt64)168887563046093400);
-                rootWriter.Write((UInt64)168887563046093400);
-                rootWriter.Write((UInt64)18404803662219706968);
-                rootWriter.Write((UInt64)18404803662219771754);
-                rootWriter.Write((UInt32)4285202282);
+
+                string mfboData = "840384038403840384038403840384038403" + // max 900
+                                  "6AFF6AFF6AFF6AFF6AFF6AFF6AFF6AFF6AFF";  // min -150
+
+                byte[] data = Helper.ConvertHexStringToByteArray(mfboData);
+
+                writeChunk(rootWriter, "MFBO", data.Length, data);
+
             }
             #endregion
 
-            #region Set new ADT size in MHDR
-            rootWriter.BaseStream.Seek(56, SeekOrigin.Begin);
-            rootWriter.Write((UInt32)rootReader.BaseStream.Length - sizeof(UInt64));
+            #region Set MHDR data
+            if (Helper.SeekChunk(rootReader, "MHDR"))
+            {
+                Console.WriteLine("Info: Set MHDR data");
+                long mhdrStart = rootReader.BaseStream.Position + 4;
+
+                Helper.SeekChunk(rootReader, "MH2O");
+                UInt32 mh2oOffset = (rootReader.BaseStream.Position >= rootReader.BaseStream.Length ? 0 : (UInt32)rootReader.BaseStream.Position - (UInt32)mhdrStart - sizeof(UInt32));
+
+                Helper.SeekChunk(rootReader, "MFBO");
+                UInt32 mfboOffset = (rootReader.BaseStream.Position >= rootReader.BaseStream.Length ? 0 : (UInt32)rootReader.BaseStream.Position - (UInt32)mhdrStart - sizeof(UInt32));
+
+                rootWriter.BaseStream.Position = mhdrStart;
+                rootWriter.Write((mfboOffset > 0 ? 1 : (UInt32)0));          // flags
+                rootWriter.BaseStream.Position += sizeof(UInt32) * 8;        // skip mcin, mtex, mmdx, mmid, mwmo, mddf, modf
+                rootWriter.Write(mfboOffset);
+                rootWriter.Write(mh2oOffset);
+            }
             #endregion
 
             rootWriter.Close();
@@ -297,9 +322,8 @@ namespace ADTConvert
             if (!Helper.SeekChunk(inputReader, "MAMP", true))
             {
                 Console.WriteLine("Info: Create MAMP chunk");
-                texWriter.Write(Helper.MagicToSignature("MAMP"));   // Magic
-                texWriter.Write((UInt32)4);                         // Size
-                texWriter.Write((UInt32)0);                         // Content
+                byte[] data = { 0, 0, 0, 0 };
+                writeChunk(texWriter, "MAMP", 4, data);
             }
             #endregion
 
@@ -343,9 +367,9 @@ namespace ADTConvert
                         if (verbose)
                             Console.WriteLine("Info: Create MCMT subchunk");
                         newSize += 12;
-                        texWriter.Write(Helper.MagicToSignature("MCMT"));   // Magic
-                        texWriter.Write((UInt32)4);                         // Size
-                        texWriter.Write((UInt32)0);                         // Content
+
+                        byte[] data = { 0, 0, 0, 0 };
+                        writeChunk(texWriter, "MCMT", 4, data);
                     }
                     #endregion
                     #endregion
@@ -447,16 +471,14 @@ namespace ADTConvert
                         if (verbose)
                             Console.WriteLine("Info: Create MCRD subchunk");
                         newSize += 8 + (uint)mcrdSize;
-                        objWriter.Write(Helper.MagicToSignature("MCRD"));   // Magic
-                        objWriter.Write((UInt32)mcrdSize);                  // Size
-                        objWriter.Write(mcrdData);                          // Data
+
+                        writeChunk(objWriter, "MCRD", mcrdSize, mcrdData);
 
                         if (verbose)
                             Console.WriteLine("Info: Create MCRW subchunk");
                         newSize += 8 + (uint)mcrwSize;
-                        objWriter.Write(Helper.MagicToSignature("MCRW"));   // Magic
-                        objWriter.Write((UInt32)mcrwSize);                  // Size
-                        objWriter.Write(mcrwData);                          // Data
+
+                        writeChunk(objWriter, "MCRW", mcrwSize, mcrwData);
                     }
                     #endregion
                     #endregion
@@ -527,6 +549,16 @@ namespace ADTConvert
             return true;
         }
 
+        private void writeChunk(BinaryWriter writer, string magic, int size, byte[] data = null)
+        {
+            writer.Write(Helper.MagicToSignature(magic));    // Magic
+            writer.Write(size);                              // Size
+
+            if(data != null)
+            {
+                writer.Write(data);
+            }
+        }
     }
 }
 #region aaa
