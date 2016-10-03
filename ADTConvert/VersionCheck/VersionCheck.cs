@@ -8,9 +8,11 @@ namespace ADTConvert
 {
     class VersionCheck
     {
-        public static void CheckForUpdate(bool verbose = false)
+        public static void CheckForUpdate()
         {
-            if(verbose)
+            ConsoleConfig config = ConsoleConfig.Instance;
+
+            if (config.Verbose)
                 Console.WriteLine("\n--- Version Check ---");
 
             using (var client = new WebClient())
@@ -28,12 +30,12 @@ namespace ADTConvert
                     var serializer = new JavaScriptSerializer();
                     IList<GithubRealaseModel> model = serializer.Deserialize<IList<GithubRealaseModel>>(json);
 
-                    if (verbose)
+                    if (config.Verbose)
                         Console.WriteLine("Found {0} realases on Github", model.Count);
 
                     if (model.Count > 0 && model[0].tag_name != AppVersion)
                     {
-                        if (verbose)
+                        if (config.Verbose)
                             Console.WriteLine("Github Version {0}", model[0].tag_name);
 
                         string text = $"Your {AppName} version is outdated.";

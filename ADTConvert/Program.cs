@@ -10,10 +10,9 @@ namespace ADTConvert
     {
         static void Main(string[] args)
         {
-            bool silentMode = (args.Contains("-s") || args.Contains("--silent"));
-            bool verbose = (args.Contains("-v") || args.Contains("--verbose"));
+            ConsoleConfig config = ConsoleConfig.Instance.ReadArgs(args);
 
-            if (silentMode)
+            if (config.SilentMode)
                 Console.SetOut(TextWriter.Null);
 
             Console.WriteLine("--------------------------------");
@@ -22,24 +21,33 @@ namespace ADTConvert
             Console.WriteLine("E-Mail: luzifix@schattenhain.de");
             Console.WriteLine("--------------------------------");
 
-            if (!args.Contains("-noUpdate") && !args.Contains("--disableUpdateCheck"))
-                VersionCheck.CheckForUpdate(verbose);
-
-            if (args.Length <= 0)
+            if (!config.NoUpdate)
+                VersionCheck.CheckForUpdate();
+            
+            if(config.Help)
             {
                 ConsoleErrorEnd();
             }
 
-            string filename = Path.GetFullPath(args[0]);
-
-            if (!File.Exists(filename))
+            // Check if input file/dir exist
+            if (!File.Exists(config.Input) && !config.Watch)
             {
-                ConsoleErrorEnd($"File {filename} not found!");
+                ConsoleErrorEnd($"File {config.Input} not found!");
+            }
+            else if(!Directory.Exists(config.Input) && config.Watch)
+            {
+                ConsoleErrorEnd($"Directory {config.Input} not found!");
+            }
+            
+            // Check if output dir set and exist
+            if(config.Output != null && !Directory.Exists(config.Output))
+            {
+                ConsoleErrorEnd($"Output directory {config.Output} not found!");
             }
 
-            new Main(args[0], verbose);
+            new Main();
 
-            if(!silentMode)
+            if(!config.SilentMode && !config.Watch)
             {
                 Console.WriteLine("\nPress any key to close the converter");
                 Console.ReadKey();
@@ -59,12 +67,17 @@ namespace ADTConvert
             }
 
             Console.WriteLine("Help");
-            Console.WriteLine("  {0}.exe filename [-v]\n", processName);
+            Console.WriteLine("  {0}.exe filename [parameter]\n", processName);
             Console.WriteLine("Parameter");
+            Console.WriteLine("  -o, --output\t\t\t\tOutput path");
             Console.WriteLine("  -v, --verbose\t\t\t\tPrints all messages to standard output");
             Console.WriteLine("  -s, --silent\t\t\t\tDisable all messages");
+            Console.WriteLine("  -w, --watch\t\t\t\tStart watch mode (Beta)");
+            Console.WriteLine("  -h, --help\t\t\t\tShow Help");
+
             Console.WriteLine("  -noUpdate, --disableUpdateCheck\tDisable the Update check");
 
+            Console.WriteLine("\nPress any key to close the converter");
             Console.ReadKey();
             Environment.Exit(0);
         }

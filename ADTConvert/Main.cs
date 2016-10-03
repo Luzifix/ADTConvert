@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 
 namespace ADTConvert
 {
@@ -17,15 +18,73 @@ namespace ADTConvert
         private string adtName = "";
         private string exportPath = "";
         List<DataChunk> chunks = new List<DataChunk>();
+        ConsoleConfig config = ConsoleConfig.Instance;
+        private HashSet<string> filesToProcess = new HashSet<string>();
 
-        public Main(string input, bool verbose = false, int version = 6)
+        public Main()
+        {
+            if(config.Watch)
+            {
+                FileSystemWatcher watcher = new FileSystemWatcher();
+                watcher.Path = config.Input;
+                watcher.NotifyFilter = NotifyFilters.LastWrite;
+                watcher.Filter = "*.adt";
+                watcher.Changed += new FileSystemEventHandler(OnADTChanged);
+                watcher.EnableRaisingEvents = true;
+                watcher.IncludeSubdirectories = true;
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Watcher active");
+                Console.ResetColor();
+
+                Console.WriteLine("\nPress any key to stop the converter watcher");
+                Console.ReadKey();
+                watcher.Dispose();
+            }
+            else
+            {
+                convertADT(config.Input);
+            }
+        }
+
+        private void OnADTChanged(object sender, FileSystemEventArgs e)
+        {
+            if(filesToProcess.Contains(e.FullPath))
+            {
+                filesToProcess.Remove(e.FullPath);
+                return;
+            }
+
+            Thread.Sleep(250);
+            convertADT(e.FullPath);
+            Clear();
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Convert complete");
+            Console.ResetColor();
+
+            Console.WriteLine("\nPress any key to stop the converter watcher");
+            filesToProcess.Add(e.FullPath);
+        }
+
+        private bool convertADT(string input)
         {
             Console.WriteLine("\n--- Base ADT Load ---");
             adtName = Path.GetFileName(input);
-            exportPath = (Path.GetDirectoryName(input) == "" ? AppDomain.CurrentDomain.BaseDirectory : Path.GetFullPath(Path.GetDirectoryName(input))) + @"\export\";
+            exportPath = (Path.GetDirectoryName(input) == "" ? AppDomain.CurrentDomain.BaseDirectory : Path.GetFullPath(Path.GetDirectoryName(input))) + (config.Watch ? @"\.." : "") + @"\export\";
+            exportPath = (config.Output != null ? config.Output + @"\" : exportPath);
+
+            if(config.Watch)
+            {
+                string folderStruct = input.Replace(config.Input, "");
+
+                if (folderStruct != "")
+                    exportPath += Path.GetDirectoryName(folderStruct) + @"\";
+            }
+
             if (!Directory.Exists(exportPath))
             {
-                if (verbose)
+                if (config.Verbose)
                     Console.WriteLine("Debug: Create export dir in {0}", exportPath);
 
                 Directory.CreateDirectory(exportPath);
@@ -35,7 +94,9 @@ namespace ADTConvert
             try
             {
                 Console.WriteLine("Info: Open {0}", adtName);
-                FileStream baseStream = new FileStream(input, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+                FileInfo fileInfo = new FileInfo(input);
+                FileStream baseStream = fileInfo.OpenRead();
                 inputReader = new BinaryReader(baseStream);
             }
             catch (Exception e)
@@ -43,41 +104,64 @@ namespace ADTConvert
                 Program.ConsoleErrorEnd(e.Message);
             }
 
-            if (!Helper.SeekChunk(inputReader, "MVER") || !Helper.SeekChunk(inputReader, "MHDR") || !Helper.SeekChunk(inputReader, "MCIN"))
-            {
-                Program.ConsoleErrorEnd("ADT file is corrupted");
-                return;
-            }
+           
             #endregion
 
-            #region Load all chunks
-            Console.WriteLine("Info: Load all chunks");
-            inputReader.BaseStream.Seek(0, SeekOrigin.Begin);
-            while (inputReader.BaseStream.Position + 8 < inputReader.BaseStream.Length)
+            using (inputReader)
             {
-                string magic = Helper.Reverse(new string(inputReader.ReadChars(4)));
-                int size = inputReader.ReadInt32() + 8;
-                inputReader.BaseStream.Position -= 8;
-                byte[] data = inputReader.ReadBytes(size);
-
-                if(verbose)
-                    Console.WriteLine("Debug: Load {0}", magic);
-
-                chunks.Add(new DataChunk
+                if (!Helper.SeekChunk(inputReader, "MVER") || !Helper.SeekChunk(inputReader, "MHDR") || !Helper.SeekChunk(inputReader, "MCIN"))
                 {
-                    Data = data,
-                    Signature = magic,
-                    Size = size
-                });
-            }
-            #endregion
+                    Program.ConsoleErrorEnd("ADT file is corrupted");
+                    return false;
+                }
 
-            if (createRoot(input, verbose))
-                if (createTex(input, verbose))
-                    createObj(input, verbose);
+                #region Load all chunks
+                Console.WriteLine("Info: Load all chunks");
+                inputReader.BaseStream.Seek(0, SeekOrigin.Begin);
+                while (inputReader.BaseStream.Position + 8 < inputReader.BaseStream.Length)
+                {
+                    string magic = Helper.Reverse(new string(inputReader.ReadChars(4)));
+                    int size = inputReader.ReadInt32() + 8;
+                    inputReader.BaseStream.Position -= 8;
+                    byte[] data = inputReader.ReadBytes(size);
+
+                    if (config.Verbose)
+                        Console.WriteLine("Debug: Load {0}", magic);
+
+                    chunks.Add(new DataChunk
+                    {
+                        Data = data,
+                        Signature = magic,
+                        Size = size
+                    });
+                }
+                #endregion
+
+                if (createRoot())
+                    if (createTex())
+                        if (createObj())
+                        {
+                            return true;
+                        }
+            }
+            
+            return false;
         }
 
-        private bool createRoot(string input, bool verbose = false, int version = 6)
+        private void Clear()
+        {
+            adtName = "";
+            exportPath = "";
+            chunks.Clear();
+
+            if(inputReader != null)
+            {
+                inputReader.Close();
+                inputReader = null;
+            }
+        }
+
+        private bool createRoot()
         {
             Console.WriteLine("\n--- Root ADT Convert ---");
             BinaryReader rootReader = null;
@@ -85,7 +169,7 @@ namespace ADTConvert
             List<string> rootChunks = new List<string> { "MVER", /*"MHDR", "MH2O", "MCNK", "MFBO"*/ };
             List<string> mcnkSubChunks = new List<string> { "MCTV", "MCVT", "MCLV", "MCCV", "MCNR", "MCSE" };
 
-            if (!createBase(ref rootReader, ref rootWriter, rootChunks, ".adt", verbose))
+            if (!createBase(ref rootReader, ref rootWriter, rootChunks, ".adt"))
                 return false;
 
             #region Write empty MHDR chunk
@@ -217,7 +301,7 @@ namespace ADTConvert
                         #region Write MCNR sub chunk
                         if(subChunkName == "MCNR")
                         {
-                            if (verbose)
+                            if (config.Verbose)
                                 Console.WriteLine("Debug: Write MCNR chunk");
 
                             while (Helper.SeekSubChunk(inputReader, "MCNR", false, chunkEnd))
@@ -304,7 +388,7 @@ namespace ADTConvert
             return true;
         }
 
-        private bool createTex(string input, bool verbose = false, int version = 6)
+        private bool createTex()
         {
             Console.WriteLine("\n--- Tex ADT Convert ---");
             string ext0 = "_tex0.adt";
@@ -315,7 +399,7 @@ namespace ADTConvert
             List<string> mcnkSubChunks = new List<string> { "MCLY", "MCSH", "MCAL", "MCMT"};
 
 
-            if (!createBase(ref texReader, ref texWriter, texChunks, ext0, verbose))
+            if (!createBase(ref texReader, ref texWriter, texChunks, ext0))
                 return false;
 
             #region if MAMP not exist create a MAMP chunk
@@ -364,7 +448,7 @@ namespace ADTConvert
                     inputReader.BaseStream.Position = currentPosition;
                     if (!Helper.SeekSubChunk(inputReader, "MCMT", false, chunkEnd))
                     {
-                        if (verbose)
+                        if (config.Verbose)
                             Console.WriteLine("Info: Create MCMT subchunk");
                         newSize += 12;
 
@@ -399,7 +483,7 @@ namespace ADTConvert
             return true;
         }
 
-        private bool createObj(string input, bool verbose = false, int version = 6)
+        private bool createObj()
         {
             Console.WriteLine("\n--- Obj ADT Convert ---");
             string ext0 = "_obj0.adt";
@@ -409,7 +493,7 @@ namespace ADTConvert
             List<string> objChunks = new List<string> { "MVER", "MMDX", "MMID", "MWMO", "MWID", "MDDF", "MODF", /*"MCNK"*/ };
             List<string> mcnkSubChunks = new List<string> { "MCRD", "MCRW" };
 
-            if (!createBase(ref objReader, ref objWriter, objChunks, ext0, verbose))
+            if (!createBase(ref objReader, ref objWriter, objChunks, ext0))
                 return false;
 
             #region Copy & clean MCNK
@@ -457,7 +541,7 @@ namespace ADTConvert
                     inputReader.BaseStream.Position = currentPosition;
                     if (Helper.SeekSubChunk(inputReader, "MCRF", false, chunkEnd))
                     {
-                        if (verbose)
+                        if (config.Verbose)
                             Console.WriteLine("Info: Read MCRF subchunk");
 
                         inputReader.BaseStream.Position += sizeof(UInt32); // size
@@ -468,13 +552,13 @@ namespace ADTConvert
                         byte[] mcrdData = inputReader.ReadBytes(mcrdSize);
                         byte[] mcrwData = inputReader.ReadBytes(mcrwSize);
 
-                        if (verbose)
+                        if (config.Verbose)
                             Console.WriteLine("Info: Create MCRD subchunk");
                         newSize += 8 + (uint)mcrdSize;
 
                         writeChunk(objWriter, "MCRD", mcrdSize, mcrdData);
 
-                        if (verbose)
+                        if (config.Verbose)
                             Console.WriteLine("Info: Create MCRW subchunk");
                         newSize += 8 + (uint)mcrwSize;
 
@@ -508,7 +592,7 @@ namespace ADTConvert
             return true;
         }
 
-        private bool createBase(ref BinaryReader reader, ref BinaryWriter writer, List<string> allowdChunks, string ext, bool verbose = false)
+        private bool createBase(ref BinaryReader reader, ref BinaryWriter writer, List<string> allowdChunks, string ext)
         {
             string baseName = Path.GetFileNameWithoutExtension(adtName) + ext;
             string baseADT = exportPath + baseName;
@@ -516,7 +600,7 @@ namespace ADTConvert
             #region Remove adt
             if (File.Exists(baseADT))
             {
-                if (verbose)
+                if (config.Verbose)
                     Console.WriteLine("Debug: Remove {0}", baseName);
 
                 File.Delete(baseADT);
