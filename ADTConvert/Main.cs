@@ -14,6 +14,7 @@ namespace ADTConvert
             public byte[] Data;
         }
 
+        bool inputIsDir;
         BinaryReader inputReader = null;
         private string adtName = "";
         private string exportPath = "";
@@ -21,9 +22,11 @@ namespace ADTConvert
         ConsoleConfig config = ConsoleConfig.Instance;
         private HashSet<string> filesToProcess = new HashSet<string>();
 
+
         public Main()
         {
-            if(config.Watch)
+            inputIsDir = Directory.Exists(config.Input);
+            if (inputIsDir && config.Watch)
             {
                 FileSystemWatcher watcher = new FileSystemWatcher();
                 watcher.Path = config.Input;
@@ -37,9 +40,17 @@ namespace ADTConvert
                 Console.WriteLine("Watcher active");
                 Console.ResetColor();
 
-                Console.WriteLine("\nPress any key to stop the converter watcher");
-                Console.ReadKey();
+                Console.WriteLine("\nPress ESC to stop the watcher");
+                while(Console.ReadKey().Key != ConsoleKey.Escape) { }
+
                 watcher.Dispose();
+            }
+            else if(inputIsDir && !config.Watch)
+            {
+                foreach (string file in Directory.EnumerateFiles(config.Input, "*.adt", SearchOption.AllDirectories))
+                {
+                    convertADT(file);
+                }
             }
             else
             {
@@ -63,7 +74,7 @@ namespace ADTConvert
             Console.WriteLine("Convert complete");
             Console.ResetColor();
 
-            Console.WriteLine("\nPress any key to stop the converter watcher");
+            Console.WriteLine("\nPress ESC to stop the watcher");
             filesToProcess.Add(e.FullPath);
         }
 
@@ -71,15 +82,15 @@ namespace ADTConvert
         {
             Console.WriteLine("\n--- Base ADT Load ---");
             adtName = Path.GetFileName(input);
-            exportPath = (Path.GetDirectoryName(input) == "" ? AppDomain.CurrentDomain.BaseDirectory : Path.GetFullPath(Path.GetDirectoryName(input))) + (config.Watch ? @"\.." : "") + @"\export\";
-            exportPath = (config.Output != null ? config.Output + @"\" : exportPath);
+            exportPath = (Path.GetDirectoryName(input) == "" ? AppDomain.CurrentDomain.BaseDirectory : Path.GetFullPath(Path.GetDirectoryName(input))) + (config.Watch || inputIsDir ? "/.." : "") + "/export/";
+            exportPath = (config.Output != null ? config.Output + "/" : exportPath);
 
-            if(config.Watch)
+            if(inputIsDir)
             {
                 string folderStruct = input.Replace(config.Input, "");
 
                 if (folderStruct != "")
-                    exportPath += Path.GetDirectoryName(folderStruct) + @"\";
+                    exportPath += Path.GetDirectoryName(folderStruct) + "/";
             }
 
             if (!Directory.Exists(exportPath))

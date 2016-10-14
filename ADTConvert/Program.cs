@@ -30,9 +30,9 @@ namespace ADTConvert
             }
 
             // Check if input file/dir exist
-            if (!File.Exists(config.Input) && !config.Watch)
+            if (!File.Exists(config.Input) && !Directory.Exists(config.Input) && !config.Watch)
             {
-                ConsoleErrorEnd($"File {config.Input} not found!");
+                ConsoleErrorEnd($"Input File or Directory {config.Input} not found!");
             }
             else if(!Directory.Exists(config.Input) && config.Watch)
             {
@@ -49,8 +49,8 @@ namespace ADTConvert
 
             if(!config.SilentMode && !config.Watch)
             {
-                Console.WriteLine("\nPress any key to close the converter");
-                Console.ReadKey();
+                Console.WriteLine("\nPress ESC to close the converter");
+                while (Console.ReadKey().Key != ConsoleKey.Escape) { }
             }
         }
 
@@ -67,7 +67,7 @@ namespace ADTConvert
             }
 
             Console.WriteLine("Help");
-            Console.WriteLine("  {0}.exe filename [parameter]\n", processName);
+            Console.WriteLine("  {0}.exe input [parameter]\n", processName);
             Console.WriteLine("Parameter");
             Console.WriteLine("  -o, --output\t\t\t\tOutput path");
             Console.WriteLine("  -v, --verbose\t\t\t\tPrints all messages to standard output");
@@ -77,8 +77,8 @@ namespace ADTConvert
 
             Console.WriteLine("  -noUpdate, --disableUpdateCheck\tDisable the Update check");
 
-            Console.WriteLine("\nPress any key to close the converter");
-            Console.ReadKey();
+            Console.WriteLine("\nPress ESC to close the converter");
+            while (Console.ReadKey().Key != ConsoleKey.Escape) { }
             Environment.Exit(0);
         }
     }
