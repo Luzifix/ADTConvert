@@ -128,6 +128,7 @@ namespace ADTConvert
 
                 #region Load all chunks
                 Console.WriteLine("Info: Load all chunks");
+                chunks.Clear();
                 inputReader.BaseStream.Seek(0, SeekOrigin.Begin);
                 while (inputReader.BaseStream.Position + 8 < inputReader.BaseStream.Length)
                 {
@@ -152,8 +153,11 @@ namespace ADTConvert
                     if (createTex())
                         if (createObj())
                         {
+                            inputReader.Close();
                             return true;
                         }
+
+                inputReader.Close();
             }
             
             return false;
@@ -177,7 +181,7 @@ namespace ADTConvert
             Console.WriteLine("\n--- Root ADT Convert ---");
             BinaryReader rootReader = null;
             BinaryWriter rootWriter = null;
-            List<string> rootChunks = new List<string> { "MVER", /*"MHDR", "MH2O", "MCNK", "MFBO"*/ };
+            List<string> rootChunks = new List<string> { "MVER" /*, /*"MHDR", "MH2O", "MCNK", "MFBO"*/ };
             List<string> mcnkSubChunks = new List<string> { "MCTV", "MCVT", "MCLV", "MCCV", "MCNR", "MCSE" };
 
             if (!createBase(ref rootReader, ref rootWriter, rootChunks, ".adt"))
