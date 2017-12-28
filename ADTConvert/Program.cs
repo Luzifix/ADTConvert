@@ -23,8 +23,8 @@ namespace ADTConvert
 
             if (!config.NoUpdate)
                 VersionCheck.CheckForUpdate();
-            
-            if(config.Help)
+
+            if (config.Help)
             {
                 ConsoleErrorEnd();
             }
@@ -34,20 +34,20 @@ namespace ADTConvert
             {
                 ConsoleErrorEnd($"Input File or Directory {config.Input} not found!");
             }
-            else if(!Directory.Exists(config.Input) && config.Watch)
+            else if (!Directory.Exists(config.Input) && config.Watch)
             {
                 ConsoleErrorEnd($"Directory {config.Input} not found!");
             }
-            
+
             // Check if output dir set and exist
-            if(config.Output != null && !Directory.Exists(config.Output))
+            if (config.Output != null && !Directory.Exists(config.Output))
             {
                 ConsoleErrorEnd($"Output directory {config.Output} not found!");
             }
 
             new Main();
 
-            if(!config.SilentMode && !config.Watch)
+            if (!config.SilentMode && !config.Watch)
             {
                 Console.WriteLine("\nPress ESC to close the converter");
                 while (Console.ReadKey().Key != ConsoleKey.Escape) { }

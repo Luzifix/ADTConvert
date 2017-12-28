@@ -18,7 +18,7 @@ namespace ADTConvert
         public bool Watch { get; set; }
         public bool Help { get; set; }
 
-        private ConsoleConfig() {}
+        private ConsoleConfig() { }
 
         public static ConsoleConfig Instance
         {

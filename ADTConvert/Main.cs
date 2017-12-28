@@ -41,11 +41,11 @@ namespace ADTConvert
                 Console.ResetColor();
 
                 Console.WriteLine("\nPress ESC to stop the watcher");
-                while(Console.ReadKey().Key != ConsoleKey.Escape) { }
+                while (Console.ReadKey().Key != ConsoleKey.Escape) { }
 
                 watcher.Dispose();
             }
-            else if(inputIsDir && !config.Watch)
+            else if (inputIsDir && !config.Watch)
             {
                 foreach (string file in Directory.EnumerateFiles(config.Input, "*.adt", SearchOption.AllDirectories))
                 {
@@ -60,7 +60,7 @@ namespace ADTConvert
 
         private void OnADTChanged(object sender, FileSystemEventArgs e)
         {
-            if(filesToProcess.Contains(e.FullPath))
+            if (filesToProcess.Contains(e.FullPath))
             {
                 filesToProcess.Remove(e.FullPath);
                 return;
@@ -85,7 +85,7 @@ namespace ADTConvert
             exportPath = (Path.GetDirectoryName(input) == "" ? AppDomain.CurrentDomain.BaseDirectory : Path.GetFullPath(Path.GetDirectoryName(input))) + (config.Watch || inputIsDir ? "/.." : "") + "/export/";
             exportPath = (config.Output != null ? config.Output + "/" : exportPath);
 
-            if(inputIsDir)
+            if (inputIsDir)
             {
                 string folderStruct = input.Replace(config.Input, "");
 
@@ -115,7 +115,7 @@ namespace ADTConvert
                 Program.ConsoleErrorEnd(e.Message);
             }
 
-           
+
             #endregion
 
             using (inputReader)
@@ -159,7 +159,7 @@ namespace ADTConvert
 
                 inputReader.Close();
             }
-            
+
             return false;
         }
 
@@ -169,7 +169,7 @@ namespace ADTConvert
             exportPath = "";
             chunks.Clear();
 
-            if(inputReader != null)
+            if (inputReader != null)
             {
                 inputReader.Close();
                 inputReader = null;
@@ -238,72 +238,72 @@ namespace ADTConvert
                     rootWriter.Write(inputReader.ReadBytes(8));                 // magic && old size
 
 
-                        rootWriter.Write(inputReader.ReadUInt32());                 // flags
-                        rootWriter.Write(inputReader.ReadUInt32());                 // IndexX
-                        rootWriter.Write(inputReader.ReadUInt32());                 // IndexY
+                    rootWriter.Write(inputReader.ReadUInt32());                 // flags
+                    rootWriter.Write(inputReader.ReadUInt32());                 // IndexX
+                    rootWriter.Write(inputReader.ReadUInt32());                 // IndexY
 
-                        // nLayers
-                        inputReader.BaseStream.Position += 4;
-                        rootWriter.Write((UInt32)0);
+                    // nLayers
+                    inputReader.BaseStream.Position += 4;
+                    rootWriter.Write((UInt32)0);
 
-                        // nDoodadRefs
-                        inputReader.BaseStream.Position += 4;
-                        rootWriter.Write((UInt32)0);
+                    // nDoodadRefs
+                    inputReader.BaseStream.Position += 4;
+                    rootWriter.Write((UInt32)0);
 
-                        // ofsHeight
-                        inputReader.BaseStream.Position += 4;
-                        rootWriter.Write((UInt32)0);
+                    // ofsHeight
+                    inputReader.BaseStream.Position += 4;
+                    rootWriter.Write((UInt32)0);
 
-                        // ofsNormal
-                        inputReader.BaseStream.Position += 4;
-                        rootWriter.Write((UInt32)0);
+                    // ofsNormal
+                    inputReader.BaseStream.Position += 4;
+                    rootWriter.Write((UInt32)0);
 
-                        // ofsLayer
-                        inputReader.BaseStream.Position += 4;
-                        rootWriter.Write((UInt32)0);
+                    // ofsLayer
+                    inputReader.BaseStream.Position += 4;
+                    rootWriter.Write((UInt32)0);
 
-                        // ofsRefs
-                        inputReader.BaseStream.Position += 4;
-                        rootWriter.Write((UInt32)0);
+                    // ofsRefs
+                    inputReader.BaseStream.Position += 4;
+                    rootWriter.Write((UInt32)0);
 
-                        // ofsAlpha
-                        inputReader.BaseStream.Position += 4;
-                        rootWriter.Write((UInt32)0);
+                    // ofsAlpha
+                    inputReader.BaseStream.Position += 4;
+                    rootWriter.Write((UInt32)0);
 
-                        // sizeAlpha
-                        inputReader.BaseStream.Position += 4;
-                        rootWriter.Write((UInt32)0);
+                    // sizeAlpha
+                    inputReader.BaseStream.Position += 4;
+                    rootWriter.Write((UInt32)0);
 
-                        // ofsShadow
-                        inputReader.BaseStream.Position += 4;
-                        rootWriter.Write((UInt32)0);
+                    // ofsShadow
+                    inputReader.BaseStream.Position += 4;
+                    rootWriter.Write((UInt32)0);
 
-                        // sizeShadow
-                        inputReader.BaseStream.Position += 4;
-                        rootWriter.Write((UInt32)0);
+                    // sizeShadow
+                    inputReader.BaseStream.Position += 4;
+                    rootWriter.Write((UInt32)0);
 
-                        rootWriter.Write(inputReader.ReadUInt32());                 // areaid
+                    rootWriter.Write(inputReader.ReadUInt32());                 // areaid
 
-                        // nMapObjRefs
-                        inputReader.BaseStream.Position += 4;
-                        rootWriter.Write((UInt32)0);
+                    // nMapObjRefs
+                    inputReader.BaseStream.Position += 4;
+                    rootWriter.Write((UInt32)0);
 
-                        rootWriter.Write(inputReader.ReadUInt16());                 // holes_low_res
-                        rootWriter.Write(inputReader.ReadUInt16());                 // unknown_but_used;
-                        rootWriter.Write(inputReader.ReadBytes(16));                // ReallyLowQualityTextureingMap
-                        rootWriter.Write(inputReader.ReadUInt32());                 // predTex
-                        rootWriter.Write(inputReader.ReadUInt32());                 // noEffectDoodad
-                        rootWriter.Write(inputReader.ReadUInt32());                 // ofsSndEmitters
-                        rootWriter.Write(inputReader.ReadUInt32());                 // nSndEmitters
-                        rootWriter.Write(inputReader.ReadUInt32());                 // ofsLiquid
-                        rootWriter.Write(inputReader.ReadUInt32());                 // sizeLiquid
-                        rootWriter.Write(inputReader.ReadBytes(sizeof(float) * 3)); // position
-                        rootWriter.Write(inputReader.ReadUInt32());                 // ofsMCCV
-                        rootWriter.Write(inputReader.ReadUInt32());                 // ofsMCLV
+                    rootWriter.Write(inputReader.ReadUInt16());                 // holes_low_res
+                    rootWriter.Write(inputReader.ReadUInt16());                 // unknown_but_used;
+                    rootWriter.Write(inputReader.ReadBytes(16));                // ReallyLowQualityTextureingMap
+                    rootWriter.Write(inputReader.ReadUInt32());                 // predTex
+                    rootWriter.Write(inputReader.ReadUInt32());                 // noEffectDoodad
+                    rootWriter.Write(inputReader.ReadUInt32());                 // ofsSndEmitters
+                    rootWriter.Write(inputReader.ReadUInt32());                 // nSndEmitters
+                    rootWriter.Write(inputReader.ReadUInt32());                 // ofsLiquid
+                    rootWriter.Write(inputReader.ReadUInt32());                 // sizeLiquid
+                    rootWriter.Write(inputReader.ReadBytes(sizeof(float) * 3)); // position
+                    rootWriter.Write(inputReader.ReadUInt32());                 // ofsMCCV
+                    rootWriter.Write(inputReader.ReadUInt32());                 // ofsMCLV
 
-                        // unused
-                        inputReader.BaseStream.Position += 4;
-                        rootWriter.Write((UInt32)0);
+                    // unused
+                    inputReader.BaseStream.Position += 4;
+                    rootWriter.Write((UInt32)0);
 
                     newSize += 128;                                                 // header size
 
@@ -314,7 +314,7 @@ namespace ADTConvert
                         inputReader.BaseStream.Position = afterHeaderPosition;
 
                         #region Write MCNR sub chunk
-                        if(subChunkName == "MCNR")
+                        if (subChunkName == "MCNR")
                         {
                             if (config.Verbose)
                                 Console.WriteLine("Debug: Write MCNR chunk");
@@ -364,7 +364,7 @@ namespace ADTConvert
             }
             else
             {
-                
+
                 Console.WriteLine("Info: Create MFBO chunk");
                 rootWriter.BaseStream.Seek(0, SeekOrigin.End);
 
@@ -411,7 +411,7 @@ namespace ADTConvert
             BinaryReader texReader = null;
             BinaryWriter texWriter = null;
             List<string> texChunks = new List<string> { "MVER", "MAMP", "MTEX", /*"MCNK"*/ };
-            List<string> mcnkSubChunks = new List<string> { "MCLY", "MCSH", "MCAL", "MCMT"};
+            List<string> mcnkSubChunks = new List<string> { "MCLY", "MCSH", "MCAL", "MCMT" };
 
 
             if (!createBase(ref texReader, ref texWriter, texChunks, ext0))
@@ -437,7 +437,7 @@ namespace ADTConvert
                 long chunkEnd = chunkStart + sizeof(UInt32) * 2 + size;
 
                 if (size > 0)
-                {                    
+                {
                     inputReader.BaseStream.Position = chunkStart;
                     texWriter.Write(inputReader.ReadBytes(8)); // magic && old size
                     inputReader.BaseStream.Position += 128;    // skip header (128 bytes)
@@ -486,7 +486,7 @@ namespace ADTConvert
 
             texWriter.Close();
             texReader.Close();
-        
+
             #region Copy tex0 to tex1
             Console.WriteLine("Info: Copy tex0 to tex1");
             string basePath = exportPath + Path.GetFileNameWithoutExtension(adtName);
@@ -653,7 +653,7 @@ namespace ADTConvert
             writer.Write(Helper.MagicToSignature(magic));    // Magic
             writer.Write(size);                              // Size
 
-            if(data != null)
+            if (data != null)
             {
                 writer.Write(data);
             }
