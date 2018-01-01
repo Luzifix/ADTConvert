@@ -72,7 +72,9 @@ namespace ADTConvert
             Console.WriteLine("  -o, --output\t\t\t\tOutput path");
             Console.WriteLine("  -v, --verbose\t\t\t\tPrints all messages to standard output");
             Console.WriteLine("  -s, --silent\t\t\t\tDisable all messages");
-            Console.WriteLine("  -w, --watch\t\t\t\tStart watch mode (Beta)");
+            Console.WriteLine("  -w, --watch\t\t\t\tStart watch mode");
+            Console.WriteLine("  -l, --legion\t\t\t\tConvert Maps to Legion Format (Alpha)");
+            Console.WriteLine("  -nt, --noTables\t\t\tDisable WDT, WDL & TEX file creation");
             Console.WriteLine("  -h, --help\t\t\t\tShow Help");
 
             Console.WriteLine("  -noUpdate, --disableUpdateCheck\tDisable the Update check");

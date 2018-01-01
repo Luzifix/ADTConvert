@@ -121,5 +121,10 @@ namespace ADTConvert
 
             return HexAsBytes;
         }
+
+        public static float ConvertClientToServer(float clientCoord)
+        {
+            return 17066 - clientCoord;
+        }
     }
 }

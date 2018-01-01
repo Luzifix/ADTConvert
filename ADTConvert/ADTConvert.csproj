@@ -38,6 +38,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -48,6 +49,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationIcon>ADT.ico</ApplicationIcon>
@@ -64,8 +66,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConsoleConfig.cs" />
+    <Compile Include="IO\Extensions.cs" />
     <Compile Include="Helper.cs" />
+    <Compile Include="IO\Files\Terrain\Wotlk\MapStructs.cs" />
+    <Compile Include="IO\Files\WoWTypes.cs" />
     <Compile Include="Main.cs" />
+    <Compile Include="IO\Metrics.cs" />
     <Compile Include="Program.cs" />
     <Content Include="Properties\AssemblyInfo.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
@@ -81,6 +87,8 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
+    <Compile Include="IO\SizeCache.cs" />
+    <Compile Include="UnsafeNativeMethods.cs" />
     <Compile Include="VersionCheck\GithubRealaseModel.cs" />
     <Compile Include="VersionCheck\VersionCheck.cs" />
   </ItemGroup>

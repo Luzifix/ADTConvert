@@ -16,6 +16,9 @@ namespace ADTConvert
         public bool Verbose { get; set; }
         public bool NoUpdate { get; set; }
         public bool Watch { get; set; }
+        public bool Legion { get; set; }
+        public float LegionBoundingBox { get; set; } = 300.0f;
+        public bool NoTables { get; set; } = false;
         public bool Help { get; set; }
 
         private ConsoleConfig() { }
@@ -41,22 +44,25 @@ namespace ADTConvert
             Verbose = (args.Contains("-v") || args.Contains("--verbose"));
             NoUpdate = (args.Contains("-noUpdate") || args.Contains("--disableUpdateCheck"));
             Watch = (args.Contains("-w") || args.Contains("--watch"));
+            Legion = (args.Contains("-l") || args.Contains("--legion"));
             Help = (args.Contains("-h") || args.Contains("--help"));
+            NoTables = (args.Contains("-nt") || args.Contains("--noTables"));
 
             Input = Path.GetFullPath(args[0]);
 
             IEnumerable<string> outPath;
+            IEnumerable<string> boundingBox;
 
-            outPath = args.Where(s => s.StartsWith("-o="));
+            outPath = args.Where(s => s.StartsWith("-o=") || s.StartsWith("--output="));
             if (outPath.Count() == 1)
             {
                 Output = Path.GetFullPath(outPath.First().Split('=').Last());
             }
 
-            outPath = args.Where(s => s.StartsWith("--output="));
-            if (Output == null && outPath.Count() == 1)
+            boundingBox = args.Where(s => s.StartsWith("-lb=") || s.StartsWith("--legionBoundingBox"));
+            if (boundingBox.Count() == 1)
             {
-                Output = Path.GetFullPath(outPath.First().Split('=').Last());
+                LegionBoundingBox = Single.Parse(boundingBox.First().Split('=').Last());
             }
 
             return this;
