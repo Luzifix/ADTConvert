@@ -225,7 +225,7 @@ namespace ADTConvert
 
                     List<string> searchChunks = new List<string> { "MVER", "MHDR", "MFBO", "MCNK" };
                     Helper.SeekChunkFormList(inputReader, searchChunks, false);
-                    long mh2oEnd = inputReader.BaseStream.Position;
+                    long mh2oEnd = inputReader.BaseStream.Position- sizeof(uint);
                     Int32 mh2oSize = (Int32)mh2oEnd - (Int32)mh2oStart;
 
                     inputReader.BaseStream.Position = mh2oStart;
