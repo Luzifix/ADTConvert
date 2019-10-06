@@ -977,7 +977,7 @@ namespace ADTConvert
             foreach (var adt in adtList)
             {
                 string name = Path.GetFileNameWithoutExtension(adt);
-                var match = Regex.Match(name, @"_(\d{2})_(\d{2})$");
+                var match = Regex.Match(name, @"_(\d{1,})_(\d{1,})$");
                 UInt16 y = UInt16.Parse(match.Groups[1].ToString());
                 UInt16 x = UInt16.Parse(match.Groups[2].ToString());
 
