@@ -169,7 +169,7 @@ namespace ADTConvert
                                 #region Create ADT tables
                                 if (inputIsDir)
                                 {
-                                    string newWorldName = Regex.Replace(adtName, @"(_\d{2}_\d{2}\.adt)", String.Empty);
+                                    string newWorldName = Regex.Replace(adtName, @"(_\d{1,}_\d{1,}\.adt)", String.Empty);
                                     if (worldName != newWorldName)
                                     {
                                         worldName = newWorldName;
